@@ -21,7 +21,7 @@
 set -e
 
 usage() {
-  echo "Usage: $0 <major|minor|patch|MAJOR.MINOR.PATCH[+BUILD]>" >&2
+  echo "Usage: $0 <major|minor|patch|build|MAJOR.MINOR.PATCH[+BUILD]>" >&2
   exit 1
 }
 
@@ -70,12 +70,17 @@ current_base="${current%%+*}"
 current_major="$(echo "$current_base" | cut -d. -f1)"
 current_minor="$(echo "$current_base" | cut -d. -f2)"
 current_patch="$(echo "$current_base" | cut -d. -f3)"
+case "$current" in
+  *+*) current_build="${current#*+}" ;;
+  *)   current_build=0 ;;
+esac
 
 # Compute new version from argument.
 case "$1" in
   major) version="$((current_major + 1)).0.0" ;;
   minor) version="$current_major.$((current_minor + 1)).0" ;;
   patch) version="$current_major.$current_minor.$((current_patch + 1))" ;;
+  build) version="$current_base+$((current_build + 1))" ;;
   *[0-9]*)
     if ! echo "$1" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(\+[0-9]+)?$'; then
       echo "Error: invalid version '$1'. Expected MAJOR.MINOR.PATCH[+BUILD]." >&2
