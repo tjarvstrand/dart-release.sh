@@ -122,30 +122,45 @@ dart pub login
 
 echo "Releasing $tag..."
 
-# Update CHANGELOG.md.
+# Update CHANGELOG.md: replace Unreleased with version heading.
 if ! grep -q '## \[Unreleased\]' "$CHANGELOG"; then
   echo "Error: no [Unreleased] section found in CHANGELOG.md." >&2
   exit 1
 fi
 
-sed -i.bak "s/## \[Unreleased\]/## [Unreleased]\n\n## [$version] - $date/" "$CHANGELOG"
+sed -i.bak "s/## \[Unreleased\]/## [$version] - $date/" "$CHANGELOG"
 rm -f "$CHANGELOG.bak"
 
-sed -i.bak "s|\[Unreleased\]: \(.*\)/compare/v.*\.\.\.HEAD|[Unreleased]: \1/compare/$tag...HEAD\n[$version]: \1/releases/tag/$tag|" "$CHANGELOG"
+sed -i.bak "s|\[Unreleased\]: \(.*\)/compare/v.*\.\.\.HEAD|[$version]: \1/releases/tag/$tag|" "$CHANGELOG"
 rm -f "$CHANGELOG.bak"
 
-# Commit, tag, and push.
+# Commit and tag (release commit has no Unreleased section).
 if [ "$vcs" = "jj" ]; then
   jj commit -R "$REPO_DIR" -m "Release $tag"
   jj bookmark set main -R "$REPO_DIR" -r @-
   jj tag set "$tag" -R "$REPO_DIR" -r @-
+else
+  git -C "$REPO_DIR" add -A
+  git -C "$REPO_DIR" commit -m "Release $tag"
+  git -C "$REPO_DIR" tag "$tag"
+fi
+
+# Add back empty Unreleased section for future development.
+sed -i.bak "s/## \[$version\]/## [Unreleased]\n\n## [$version]/" "$CHANGELOG"
+rm -f "$CHANGELOG.bak"
+
+sed -i.bak "s|\[$version\]: \(.*\)/releases/tag/$tag|[Unreleased]: \1/compare/$tag...HEAD\n[$version]: \1/releases/tag/$tag|" "$CHANGELOG"
+rm -f "$CHANGELOG.bak"
+
+if [ "$vcs" = "jj" ]; then
+  jj commit -R "$REPO_DIR" -m "Add back Unreleased section"
+  jj bookmark set main -R "$REPO_DIR" -r @-
   jj git push -R "$REPO_DIR"
   jj git export -R "$REPO_DIR"
   git -C "$REPO_DIR" push -f origin "$tag"
 else
   git -C "$REPO_DIR" add -A
-  git -C "$REPO_DIR" commit -m "Release $tag"
-  git -C "$REPO_DIR" tag "$tag"
+  git -C "$REPO_DIR" commit -m "Add back Unreleased section"
   git -C "$REPO_DIR" push
   git -C "$REPO_DIR" push -f origin "$tag"
 fi
